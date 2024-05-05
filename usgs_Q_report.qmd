@@ -1,0 +1,94 @@
+---
+title: "USGS Flow (Q) Gages in CA by County"
+format:
+  #pdf: default
+  html:
+    theme: materia # sandstone, materia
+    toc: true
+    toc-depth: 2
+    self-contained: true
+    code-fold: true
+    code-overflow: wrap
+format-links: false
+execute:
+  echo: false
+  warning: false
+  message: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| label: load
+#| message: false
+targets::tar_load(ca_Q_sites_cnty)
+targets::tar_load(ca_counties)
+library(tidyverse)
+library(sf)
+
+```
+
+A quick synopsis of USGS flow (discharge "**Q**") stations in CA by county. 
+
+## Methods
+
+A current list of USGS flow gages in California was downloaded via the {dataRetrieval} package in R on `r Sys.Date()`. These data were then filtered to sites that contain valid latitude and longitude data, and are spatially mapped and summarized below.
+
+## Summary across CA
+
+```{r}
+#| label: fig-ca-map
+#| fig-cap: "Map of USGS gages collecting discharge (Q) in California."
+
+ggplot() + 
+  geom_sf(data=ca_counties, color="gray20", fill=alpha("gray70",0.2), lwd=0.2)+
+  geom_sf(data=ca_Q_sites_cnty, pch=16, color=alpha("steelblue", 0.5)) +
+  ggthemes::theme_map()
+
+```
+
+There are a total of `r nrow(ca_Q_sites_cnty)` in California, however these sites are not evenly distributed throughout the state (@fig-ca-map).
+
+## By County
+
+If we summarize the total number of gages in each county, we can see well gaged and poorly gaged counties more clearly (@fig-gage-by-county). These counties are not evenly distributed, but the southern half of CA has a large majority of the USGS flow gages in CA (@fig-county-topbottom).
+
+```{r}
+#| label: fig-gage-by-county
+#| fig-cap: "Gages by County"
+
+# drop geom and get tally
+ca_Q_sites_tally <- ca_Q_sites_cnty |> st_drop_geometry() |> 
+  group_by(NAME) |> tally() |> arrange(desc(n))
+
+# get top and bottom 10 counties
+top10 <- ca_Q_sites_tally |> slice_max(order_by = n, n=10) |> 
+  mutate(group="Top 10")
+bot10 <- ca_Q_sites_tally |> slice_min(order_by = n, n=10) |> 
+    mutate(group="Bottom 10")
+
+ca_Q_tally_combined <- bind_rows(top10, bot10) 
+
+# barplot
+ggplot() + 
+  geom_col(data=ca_Q_tally_combined, aes(y=forcats::fct_reorder(NAME, n), x=n)) +
+  facet_wrap(~group, drop = TRUE, scales = "free") +
+  cowplot::theme_minimal_vgrid() +
+  labs(x="Total Q Gages", y="")
+
+```
+
+```{r}
+#| label: fig-county-topbottom
+#| fig-cap: "Top and bottom 10 counties for number of USGS gages."
+
+ca_Q_sites_cnty |> right_join(ca_Q_tally_combined) |> 
+  ggplot() + 
+  geom_sf(data=ca_counties, color="gray20", fill=alpha("gray70",0.1), lwd=0.2)+
+  geom_sf(data=ca_counties |> filter(NAME %in% ca_Q_tally_combined$NAME), color="gray20", fill=alpha("gray40",0.4), lwd=0.3)+
+  geom_sf(aes(fill=group), pch=21, color=alpha("gray70", 0.2)) +
+  scale_fill_viridis_d("Top or Bottom", alpha=0.6)+
+  cowplot::theme_map()
+
+```
+
