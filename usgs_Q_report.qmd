@@ -26,6 +26,7 @@ targets::tar_load(ca_counties)
 library(tidyverse)
 library(sf)
 library(glue)
+library(ggthemes)
 
 ```
 
