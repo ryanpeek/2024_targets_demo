@@ -112,8 +112,8 @@ library(tidyterra)
 library(basemaps)
 
 #set_defaults(map_service = "osm", map_type = "topographic")
-set_defaults(map_service = "esri", map_type = "natgeo_world_map")
-#set_defaults(map_service = "esri", map_type = "world_imagery")
+#set_defaults(map_service = "esri", map_type = "natgeo_world_map")
+set_defaults(map_service = "esri", map_type = "world_imagery")
 
 # get basemap and make a spatraster
 cnty_rast <- basemap_raster(ca_counties[ca_counties$NAME==example_county,],
