@@ -25,6 +25,7 @@ targets::tar_load(ca_Q_sites_cnty)
 targets::tar_load(ca_counties)
 library(tidyverse)
 library(sf)
+library(glue)
 
 ```
 
@@ -47,11 +48,11 @@ ggplot() +
 
 ```
 
-There are a total of `r nrow(ca_Q_sites_cnty)` in California, however these sites are not evenly distributed throughout the state (@fig-ca-map).
+There are a total of `r nrow(ca_Q_sites_cnty)` in California, however these sites are not evenly distributed throughout the state or through the `r nrow(ca_counties)` counties in California (@fig-ca-map).
 
 ## By County
 
-If we summarize the total number of gages in each county, we can see well gaged and poorly gaged counties more clearly (@fig-gage-by-county). These counties are not evenly distributed, but the southern half of CA has a large majority of the USGS flow gages in CA (@fig-county-topbottom).
+If we summarize the total number of gages in each county, we can see well gaged and poorly gaged counties more clearly (@fig-gage-by-county). These well-gaged or not poorly-gaged counties are not evenly distributed. The southern half of CA has a majority of the USGS flow gages in CA (@fig-county-topbottom).
 
 ```{r}
 #| label: fig-gage-by-county
@@ -90,5 +91,60 @@ ca_Q_sites_cnty |> right_join(ca_Q_tally_combined) |>
   scale_fill_viridis_d("Top or Bottom", alpha=0.6)+
   cowplot::theme_map()
 
+```
+
+```{r}
+#| label: example-county
+#| echo: false
+example_county <- "Mendocino"
+
+```
+
+If we zoom into a single county, it's possible to better assess the distribution of gages within watersheds. Here is an example using `r example_county` County (@fig-county-basemap).
+
+```{r}
+#| label: get-basemap
+#| echo: false
+
+library(terra)
+library(tidyterra)
+library(basemaps)
+
+#set_defaults(map_service = "osm", map_type = "topographic")
+set_defaults(map_service = "esri", map_type = "natgeo_world_map")
+#set_defaults(map_service = "esri", map_type = "world_imagery")
+
+# get basemap and make a spatraster
+cnty_rast <- basemap_raster(ca_counties[ca_counties$NAME==example_county,],
+                            force = TRUE, verbose = FALSE)
+cnty_terra <- terra::rast(cnty_rast) # convert to terra
+
+# mask to county
+cnty_terra_mask <- terra::crop(cnty_terra,
+                               st_transform(ca_counties[ca_counties$NAME==example_county,], 3857),
+                               mask=TRUE)
+```
+
+```{r}
+#| label: fig-county-basemap
+#| fig-cap: "Example county map."
+
+# county map
+(gg_cnty_map <-
+   ggplot() +
+   # cropped only
+   geom_spatraster_rgb(data=cnty_terra_mask, alpha=0.8) +
+   geom_sf(data=ca_Q_sites_cnty |> filter(NAME==example_county),
+           fill="yellow", alpha=0.8, pch=21, 
+           col=alpha("gray40", 0.5), size=3) +
+   geom_sf(data=ca_counties |> filter(NAME==example_county), 
+           fill=alpha("gray70", 0), color="orange", lwd=1) +
+   ggspatial::annotation_north_arrow(location="br", 
+                                     width = unit(1.2, "cm"), 
+                                     pad_y = unit(1.1, "cm")) +
+   ggspatial::annotation_scale(unit_category="imperial", location="br") +
+   labs(title = glue("USGS gages in {example_county} County"))+
+   theme_void()
+)
 ```
 
